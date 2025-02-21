@@ -1,10 +1,11 @@
 *.exe
-*.lik
+*.ilk
 *.zip
 *.exp
 *.obj
 *.dll
 *.pdb
+*.
 *.nativecodeanalysis.xml
 *.lib
 build

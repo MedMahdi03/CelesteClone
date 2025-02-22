@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch",
+      "type": "cppvsdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/PlatformerEngine",
+
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    }
+  ]
+}

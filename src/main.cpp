@@ -1,11 +1,23 @@
+#include "platformerEngine_lib.h"
+#include <iostream>
+#include "platform.h"
 
-static bool gameOver = false;
+#define APPENTRY
+#include "glcorearb.h"
 
+#ifdef _WIN32
+#include "win32_platform.cpp"
+#endif
+
+#include "gl_renderer.h"
 int main()
 {
-    while(!gameOver)
-    {
+    platform_create_window(1200, 720, "GameEngine");
 
+    while (running)
+    {
+        platform_update_window();
     }
+
     return 0;
 }

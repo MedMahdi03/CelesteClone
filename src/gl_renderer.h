@@ -1,7 +1,6 @@
 #pragma once
-#include "platformerEngine_lib.h"
+
 #include "glcorearb.h"
-#include "platform.h"
 
 // #############################################################################
 //                           OpenGL Function Pointers

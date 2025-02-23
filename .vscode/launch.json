@@ -9,7 +9,8 @@
 
       "args": [],
       "cwd": "${workspaceFolder}",
-      "console": "internalConsole"
+      "console": "internalConsole",
+      "preLaunchTask": "build"
     }
   ]
 }

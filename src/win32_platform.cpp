@@ -1,17 +1,17 @@
 #include "platform.h"
 #include "platformerEngine_lib.h"
-
-#include <glcorearb.h>
+#include "glcorearb.h"
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
-#include <Windows.h>
+#include <windows.h>
+
 #include "wglext.h"
 
 //****************************************************************
 //                          Windows Globals
 //****************************************************************
 static HWND window;
-
+HDC dc;
 //****************************************************************
 //                          Windows Globals
 //****************************************************************
@@ -30,7 +30,13 @@ LRESULT CALLBACK windows_window_callback(HWND window, UINT msg, WPARAM wParam, L
         running = false;
         break;
     }
-
+    case WM_SIZE:
+    {
+        RECT rect = {};
+        GetClientRect(window, &rect);
+        input.screenSizeX = rect.right - rect.left;
+        input.screenSizeY = rect.bottom - rect.top;
+    }
     default:
     {
         result = DefWindowProcA(window, msg, wParam, lParam);
@@ -58,7 +64,7 @@ bool platform_create_window(int width, int height, char *title)
     int dwStyle = WS_OVERLAPPEDWINDOW;
 
     PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormatARB = nullptr;
-    PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAtribsARB = nullptr;
+    PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = nullptr;
     // intialize fake window layer for OpenGL
     {
 
@@ -80,6 +86,7 @@ bool platform_create_window(int width, int height, char *title)
         pfd.nSize = sizeof(pfd);
         pfd.nVersion = 1;
         pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+        pfd.iPixelType = PFD_TYPE_RGBA;
         pfd.cColorBits = 32;
         pfd.cAlphaBits = 8;
         pfd.cDepthBits = 24;
@@ -110,14 +117,14 @@ bool platform_create_window(int width, int height, char *title)
             SM_ASSERT(false, "Failed to make current");
             return false;
         }
-
         wglChoosePixelFormatARB =
             (PFNWGLCHOOSEPIXELFORMATARBPROC)platform_load_gl_function("wglChoosePixelFormatARB");
-        wglCreateContextAtribsARB =
-            (PFNWGLCREATECONTEXTATTRIBSARBPROC)platform_load_gl_function("wglCreateContextAtribsARB");
+        wglCreateContextAttribsARB =
+            (PFNWGLCREATECONTEXTATTRIBSARBPROC)platform_load_gl_function("wglCreateContextAttribsARB");
 
-        if (!wglCreateContextAtribsARB || !wglChoosePixelFormatARB)
+        if (!wglCreateContextAttribsARB || !wglChoosePixelFormatARB)
         {
+
             SM_ASSERT(false, "Failed to load OpenGl functions");
             return false;
         }
@@ -128,6 +135,7 @@ bool platform_create_window(int width, int height, char *title)
 
         DestroyWindow(window);
     }
+
     // intialize acutual OpenGL
     {
         {
@@ -137,6 +145,7 @@ bool platform_create_window(int width, int height, char *title)
             width += borderRect.right - borderRect.left;
             height += borderRect.bottom - borderRect.top;
         }
+
         window = CreateWindowExA(0, title, title, dwStyle, 100, 100, width, height, NULL, NULL, instance, NULL);
 
         if (window == NULL)
@@ -144,39 +153,35 @@ bool platform_create_window(int width, int height, char *title)
             SM_ASSERT(false, "Failed to create Windows window");
             return false;
         }
-
-        HDC dc = GetDC(window);
+        dc = GetDC(window);
         if (!dc)
         {
-            SM_ASSERT(false, "Failed to get HDC");
+            SM_ASSERT(false, "Failed to get DC");
             return false;
         }
 
         const int pixelAttribs[] =
             {
-                WGL_DRAW_TO_WINDOW_ARB,
-                GL_TRUE,
-                WGL_SUPPORT_OPENGL_ARB,
-                GL_TRUE,
-                WGL_DOUBLE_BUFFER_ARB,
-                GL_TRUE,
-                WGL_SWAP_METHOD_ARB,
-                WGL_SWAP_COPY_ARB,
-                WGL_PIXEL_TYPE_ARB,
-                WGL_TYPE_RGBA_ARB,
-                WGL_ACCELERATION_ARB,
-                WGL_FULL_ACCELERATION_ARB,
-                WGL_COLOR_BITS_ARB,
-                32,
-                WGL_ALPHA_BITS_ARB,
-                8,
-                WGL_DEPTH_BITS_ARB,
-                24,
+                WGL_DRAW_TO_WINDOW_ARB, GL_TRUE,
+                WGL_SUPPORT_OPENGL_ARB, GL_TRUE,
+                WGL_DOUBLE_BUFFER_ARB, GL_TRUE,
+                WGL_SWAP_METHOD_ARB, WGL_SWAP_COPY_ARB,
+                WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
+                WGL_ACCELERATION_ARB, WGL_FULL_ACCELERATION_ARB,
+                WGL_COLOR_BITS_ARB, 32,
+                WGL_ALPHA_BITS_ARB, 8,
+                WGL_DEPTH_BITS_ARB, 24,
+                0 // Terminate with 0, otherwise OpenGL will throw an Error!
             };
 
         UINT numPixelFormats;
         int pixelFormat = 0;
-        if (!wglChoosePixelFormatARB(dc, pixelAttribs, 0, 1, &pixelFormat, &numPixelFormats))
+
+        if (!wglChoosePixelFormatARB(dc, pixelAttribs,
+                                     0, // Float List
+                                     1, // Max Formats
+                                     &pixelFormat,
+                                     &numPixelFormats))
         {
             SM_ASSERT(0, "Failed to wglChoosePixelFormatARB");
             return false;
@@ -199,7 +204,7 @@ bool platform_create_window(int width, int height, char *title)
                 WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
                 0};
 
-        HGLRC rc = wglCreateContextAtribsARB(dc, 0, contextAttribs);
+        HGLRC rc = wglCreateContextAttribsARB(dc, 0, contextAttribs);
 
         if (!rc)
         {
@@ -231,7 +236,7 @@ void platform_update_window()
 
 void *platform_load_gl_function(char *funcName)
 {
-    PROC proc = wglGetProcAddress("glCreateProgram");
+    PROC proc = wglGetProcAddress(funcName);
     if (!proc)
     {
         static HMODULE openglDLL = LoadLibraryA("opengl32.dll");
@@ -244,4 +249,9 @@ void *platform_load_gl_function(char *funcName)
         }
     }
     return (void *)proc;
+}
+
+void platform_swap_buffers()
+{
+    SwapBuffers(dc);
 }
